@@ -296,7 +296,8 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self, "O aplikacji — Katalog Zdjęć",
             "<b>Katalog Zdjęć</b><br><br>"
-            "Autor: <b>Marek Zettel</b><br><br>"
+            "Autor: <b>Marek Zettel</b><br>"
+            "<a href='https://zetmar.net.pl'>https://zetmar.net.pl</a><br><br>"
             "Automatycznie sortuje zdjęcia do folderów RRRR/Tydzień-nn<br>"
             "na podstawie danych EXIF.<br><br>"
             "Współrzędne GPS otwierane są w OpenStreetMap.<br>"

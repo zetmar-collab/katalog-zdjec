@@ -1,4 +1,7 @@
+import os
 import sys
+
+os.environ.setdefault('QT_LOGGING_RULES', 'qt.qpa.wayland=false')
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
