@@ -97,33 +97,42 @@ class ImageViewer(QDialog):
 
     def _load_exif(self, path, photo):
         self._exif_tree.clear()
-        lat = photo.get('lat')
-        lon = photo.get('lon')
-        self._map_btn.setEnabled(True)
+
+        # Zawsze czytaj świeże dane EXIF z pliku
+        try:
+            exif_data = read_exif(path)
+        except Exception:
+            exif_data = {'lat': None, 'lon': None, 'exif': {}, 'date_taken': None}
+
+        # Dane z bazy mają pierwszeństwo; jeśli brak (nawigacja), użyj danych z pliku
+        lat = photo.get('lat') if photo.get('lat') is not None else exif_data.get('lat')
+        lon = photo.get('lon') if photo.get('lon') is not None else exif_data.get('lon')
+
+        date_taken = photo.get('date_taken')
+        if not date_taken:
+            dt = exif_data.get('date_taken')
+            date_taken = dt.strftime('%Y-%m-%d %H:%M:%S') if dt else 'Nieznana'
+
         self._lat = lat
         self._lon = lon
 
         basic = [
-            ('Nazwa pliku', photo.get('filename', '')),
-            ('Data wykonania', photo.get('date_taken', 'Nieznana')),
+            ('Nazwa pliku', photo.get('filename', Path(path).name)),
+            ('Data wykonania', date_taken),
             ('Rok', str(photo.get('year', ''))),
             ('Tydzień', str(photo.get('week', ''))),
-            ('Szerokość geogr.', str(lat) if lat is not None else ''),
-            ('Długość geogr.', str(lon) if lon is not None else ''),
+            ('Szerokość geogr.', f"{lat:.6f}" if lat is not None else ''),
+            ('Długość geogr.', f"{lon:.6f}" if lon is not None else ''),
         ]
         for tag, val in basic:
             if val:
                 QTreeWidgetItem(self._exif_tree, [tag, val])
 
-        try:
-            exif_data = read_exif(path)
-            for tag, val in sorted(exif_data.get('exif', {}).items()):
-                display_val = str(val)
-                if len(display_val) > 100:
-                    display_val = display_val[:100] + '…'
-                QTreeWidgetItem(self._exif_tree, [str(tag), display_val])
-        except Exception:
-            pass
+        for tag, val in sorted(exif_data.get('exif', {}).items()):
+            display_val = str(val)
+            if len(display_val) > 100:
+                display_val = display_val[:100] + '…'
+            QTreeWidgetItem(self._exif_tree, [str(tag), display_val])
 
     def _show_on_map(self):
         if self._lat is not None and self._lon is not None:
