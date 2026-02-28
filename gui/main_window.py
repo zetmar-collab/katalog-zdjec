@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self._db_path = None
         self._catalog_root = None
         self._scan_worker = None
+        self._pending_organize = False  # ustaw True po imporcie → auto-organizacja po skanie
 
         self._build_ui()
         self._build_menu()
@@ -268,10 +269,30 @@ class MainWindow(QMainWindow):
 
     def _on_scan_finished(self):
         self._progress_bar.setVisible(False)
-        self._status_label.setText("Skanowanie zakończone")
         if self._db_conn:
             self._db_conn.close()
         self._db_conn = init_db(self._db_path)
+
+        if self._pending_organize:
+            self._pending_organize = False
+            self._status_label.setText("Skanowanie zakończone. Organizowanie zdjęć…")
+            try:
+                moves = organize_photos(str(self._catalog_root), self._db_conn, mode='move')
+                if moves:
+                    # Aktualizuj ścieżki w DB bez ponownego skanowania
+                    updates = [(dst, Path(dst).name, src) for src, dst in moves]
+                    self._db_conn.executemany(
+                        "UPDATE photos SET path=?, filename=? WHERE path=?", updates
+                    )
+                    self._db_conn.commit()
+                self._status_label.setText(
+                    f"Posegregowano {len(moves)} zdjęć do folderów rok/tydzień."
+                )
+            except Exception as e:
+                self._status_label.setText(f"Błąd organizowania: {e}")
+        else:
+            self._status_label.setText("Skanowanie zakończone")
+
         self._refresh_tree()
         self._organize_btn.setEnabled(True)
 
@@ -365,11 +386,13 @@ class MainWindow(QMainWindow):
                 dst = dest / f"{src.stem}_{counter}{src.suffix}"
                 counter += 1
             shutil.copy2(str(src), str(dst))
-        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć. Skanowanie…")
+        self._pending_organize = True
+        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć. Skanowanie i organizowanie…")
         self._start_scan()
 
     def _on_import_completed(self, dest_folder):
-        self._status_label.setText("Import zakończony. Skanowanie…")
+        self._pending_organize = True
+        self._status_label.setText("Import zakończony. Skanowanie i organizowanie…")
         self._start_scan()
 
     def _show_about(self):
