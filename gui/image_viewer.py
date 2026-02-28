@@ -4,7 +4,8 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QTreeWidget, QTreeWidgetItem, QScrollArea, QSizePolicy, QSplitter, QWidget
+    QTreeWidget, QTreeWidgetItem, QScrollArea, QSizePolicy, QSplitter, QWidget,
+    QMessageBox
 )
 
 from core.gps import open_on_map
@@ -57,8 +58,7 @@ class ImageViewer(QDialog):
         side.addWidget(QLabel("Dane EXIF"))
         side.addWidget(self._exif_tree)
 
-        self._map_btn = QPushButton("Pokaż na mapie (OSM)")
-        self._map_btn.setEnabled(False)
+        self._map_btn = QPushButton("🗺 Wyszukaj lokalizację")
         self._map_btn.clicked.connect(self._show_on_map)
         side.addWidget(self._map_btn)
 
@@ -99,7 +99,7 @@ class ImageViewer(QDialog):
         self._exif_tree.clear()
         lat = photo.get('lat')
         lon = photo.get('lon')
-        self._map_btn.setEnabled(lat is not None and lon is not None)
+        self._map_btn.setEnabled(True)
         self._lat = lat
         self._lon = lon
 
@@ -128,6 +128,11 @@ class ImageViewer(QDialog):
     def _show_on_map(self):
         if self._lat is not None and self._lon is not None:
             open_on_map(self._lat, self._lon)
+        else:
+            QMessageBox.information(
+                self, "Brak lokalizacji",
+                "Brak zapisanej lokalizacji w danych zdjęcia."
+            )
 
     def _go_prev(self):
         if self._current_idx > 0:
