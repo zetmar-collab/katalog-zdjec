@@ -31,7 +31,6 @@ class ScanWorker(QThread):
             import sqlite3
             conn = sqlite3.connect(self._db_path)
             conn.row_factory = sqlite3.Row
-            init_db(self._db_path)
 
             def callback(current, total, name):
                 self.progress.emit(current, total, name)
@@ -223,6 +222,16 @@ class MainWindow(QMainWindow):
             self._open_catalog(directory)
 
     def _open_catalog(self, directory):
+        # Zatrzymaj poprzednie skanowanie
+        if self._scan_worker and self._scan_worker.isRunning():
+            self._scan_worker.quit()
+            self._scan_worker.wait(3000)
+
+        # Zamknij stare połączenie DB
+        if self._db_conn:
+            self._db_conn.close()
+            self._db_conn = None
+
         self._catalog_root = Path(directory)
         self._db_path = str(self._catalog_root / ".photo_catalog.db")
         self._settings.setValue("catalog_root", directory)
@@ -235,8 +244,10 @@ class MainWindow(QMainWindow):
     def _start_scan(self):
         if not self._catalog_root:
             return
+        # Zatrzymaj poprzedni worker jeśli jeszcze działa
         if self._scan_worker and self._scan_worker.isRunning():
-            return
+            self._scan_worker.quit()
+            self._scan_worker.wait(3000)
 
         self._progress_bar.setVisible(True)
         self._progress_bar.setValue(0)
@@ -258,6 +269,8 @@ class MainWindow(QMainWindow):
     def _on_scan_finished(self):
         self._progress_bar.setVisible(False)
         self._status_label.setText("Skanowanie zakończone")
+        if self._db_conn:
+            self._db_conn.close()
         self._db_conn = init_db(self._db_path)
         self._refresh_tree()
         self._organize_btn.setEnabled(True)
@@ -337,7 +350,8 @@ class MainWindow(QMainWindow):
         ext_list = " ".join(f"*{e} *{e.upper()}" for e in sorted(SUPPORTED_EXTENSIONS))
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Wybierz zdjęcia do importu", str(Path.home()),
-            f"Zdjęcia ({ext_list})"
+            f"Zdjęcia ({ext_list})",
+            options=QFileDialog.DontUseNativeDialog
         )
         if not paths:
             return

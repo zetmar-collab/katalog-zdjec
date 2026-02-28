@@ -221,7 +221,8 @@ class ImportDialog(QDialog):
         ext_list = " ".join(f"*{e} *{e.upper()}" for e in sorted(SUPPORTED_EXTENSIONS))
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Wybierz zdjęcia do importu", str(Path.home()),
-            f"Zdjęcia ({ext_list})"
+            f"Zdjęcia ({ext_list})",
+            options=QFileDialog.DontUseNativeDialog
         )
         if not paths:
             return
