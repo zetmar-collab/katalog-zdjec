@@ -129,6 +129,11 @@ class MainWindow(QMainWindow):
         import_action.triggered.connect(self._open_import_dialog)
         file_menu.addAction(import_action)
 
+        import_single_action = QAction("Importuj pojedyncze zdjęcie…", self)
+        import_single_action.setShortcut("Ctrl+Shift+I")
+        import_single_action.triggered.connect(self._import_single_photo)
+        file_menu.addAction(import_single_action)
+
         file_menu.addSeparator()
 
         quit_action = QAction("Zakończ", self)
@@ -288,8 +293,37 @@ class MainWindow(QMainWindow):
         dlg.import_completed.connect(self._on_import_completed)
         dlg.exec_()
 
+    def _import_single_photo(self):
+        if not self._catalog_root:
+            QMessageBox.information(
+                self, "Brak katalogu",
+                "Najpierw otwórz lub wybierz folder katalogu."
+            )
+            return
+        from core.scanner import SUPPORTED_EXTENSIONS
+        import shutil
+        from pathlib import Path as _Path
+        ext_list = " ".join(f"*{e} *{e.upper()}" for e in sorted(SUPPORTED_EXTENSIONS))
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Wybierz zdjęcie do importu", str(Path.home()),
+            f"Zdjęcia ({ext_list})"
+        )
+        if not path:
+            return
+        src = _Path(path)
+        dest = self._catalog_root / "Import"
+        dest.mkdir(parents=True, exist_ok=True)
+        dst = dest / src.name
+        counter = 1
+        while dst.exists():
+            dst = dest / f"{src.stem}_{counter}{src.suffix}"
+            counter += 1
+        shutil.copy2(str(src), str(dst))
+        self._status_label.setText(f"Zaimportowano: {src.name}. Skanowanie…")
+        self._start_scan()
+
     def _on_import_completed(self, dest_folder):
-        self._status_label.setText(f"Import zakończony. Skanowanie…")
+        self._status_label.setText("Import zakończony. Skanowanie…")
         self._start_scan()
 
     def _show_about(self):
