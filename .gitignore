@@ -3,3 +3,8 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .photo_catalog.db
+
+# Pliki budowania Windows
+*.exe
+dist/
+build/
