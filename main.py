@@ -1,7 +1,9 @@
+import logging
 import os
 import sys
 
 os.environ.setdefault('QT_LOGGING_RULES', 'qt.qpa.wayland=false')
+logging.getLogger('exifread').setLevel(logging.CRITICAL)
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication

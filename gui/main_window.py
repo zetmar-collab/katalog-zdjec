@@ -16,6 +16,41 @@ from gui.image_viewer import ImageViewer
 from gui.themes import apply_dark_theme, apply_light_theme
 
 
+def _ask_about_duplicates(parent, duplicates, src_files):
+    """
+    Pokazuje ostrzeżenie o duplikatach.
+    Zwraca przefiltrowaną listę plików do importu lub None jeśli anulowano.
+    """
+    dup_names = {name for name, _ in duplicates}
+    lines = []
+    for name, existing_path in duplicates[:15]:
+        lines.append(f"• {name}\n      już w: {existing_path}")
+    if len(duplicates) > 15:
+        lines.append(f"  … i {len(duplicates) - 15} więcej")
+
+    msg = QMessageBox(parent)
+    msg.setWindowTitle("Wykryto zduplikowane zdjęcia")
+    msg.setIcon(QMessageBox.Warning)
+    msg.setText(
+        f"<b>{len(duplicates)} z wybranych zdjęć jest już w katalogu.</b><br><br>"
+        "Co zrobić ze zduplikowanymi plikami?"
+    )
+    msg.setDetailedText("\n".join(lines))
+
+    skip_btn = msg.addButton("Pomiń zduplikowane", QMessageBox.AcceptRole)
+    import_btn = msg.addButton("Importuj wszystkie", QMessageBox.AcceptRole)
+    msg.addButton("Anuluj", QMessageBox.RejectRole)
+    msg.exec_()
+
+    clicked = msg.clickedButton()
+    if clicked == skip_btn:
+        return [f for f in src_files if f.name not in dup_names]
+    elif clicked == import_btn:
+        return src_files
+    else:
+        return None  # anuluj
+
+
 class ScanWorker(QThread):
     progress = pyqtSignal(int, int, str)
     finished = pyqtSignal()
@@ -354,7 +389,7 @@ class MainWindow(QMainWindow):
             )
             return
         from gui.import_dialog import ImportDialog
-        dlg = ImportDialog(str(self._catalog_root), self)
+        dlg = ImportDialog(str(self._catalog_root), db_conn=self._db_conn, parent=self)
         dlg.import_completed.connect(self._on_import_completed)
         dlg.exec_()
 
@@ -376,10 +411,20 @@ class MainWindow(QMainWindow):
         )
         if not paths:
             return
+        src_files = [_Path(p) for p in paths]
+
+        # Sprawdź duplikaty w bazie
+        if self._db_conn:
+            from core.database import find_duplicate_filenames
+            duplicates = find_duplicate_filenames(self._db_conn, [f.name for f in src_files])
+            if duplicates:
+                src_files = _ask_about_duplicates(self, duplicates, src_files)
+                if src_files is None:
+                    return  # anulowano
+
         dest = self._catalog_root / "Import"
         dest.mkdir(parents=True, exist_ok=True)
-        for path in paths:
-            src = _Path(path)
+        for src in src_files:
             dst = dest / src.name
             counter = 1
             while dst.exists():
@@ -387,7 +432,7 @@ class MainWindow(QMainWindow):
                 counter += 1
             shutil.copy2(str(src), str(dst))
         self._pending_organize = True
-        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć. Skanowanie i organizowanie…")
+        self._status_label.setText(f"Zaimportowano {len(src_files)} zdjęć. Skanowanie i organizowanie…")
         self._start_scan()
 
     def _on_import_completed(self, dest_folder):

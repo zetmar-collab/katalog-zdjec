@@ -63,3 +63,15 @@ def get_photo_by_path(conn, path):
 def delete_photo(conn, path):
     conn.execute("DELETE FROM photos WHERE path=?", (str(path),))
     conn.commit()
+
+
+def find_duplicate_filenames(conn, filenames):
+    """Zwraca listę (filename, existing_path) dla plików już w katalogu."""
+    duplicates = []
+    for name in filenames:
+        row = conn.execute(
+            "SELECT path FROM photos WHERE filename=?", (name,)
+        ).fetchone()
+        if row:
+            duplicates.append((name, row['path']))
+    return duplicates

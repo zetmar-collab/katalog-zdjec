@@ -111,11 +111,12 @@ class ImportWorker(QThread):
 class ImportDialog(QDialog):
     import_completed = pyqtSignal(str)  # emits dest folder path
 
-    def __init__(self, catalog_root, parent=None):
+    def __init__(self, catalog_root, db_conn=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Importuj zdjęcia z urządzenia")
         self.resize(560, 480)
         self._catalog_root = Path(catalog_root)
+        self._db_conn = db_conn
         self._selected_path = None
         self._worker = None
         self._build_ui()
@@ -226,20 +227,31 @@ class ImportDialog(QDialog):
         )
         if not paths:
             return
+        src_files = [Path(p) for p in paths]
+
+        # Sprawdź duplikaty w bazie
+        if self._db_conn:
+            from core.database import find_duplicate_filenames
+            from gui.main_window import _ask_about_duplicates
+            duplicates = find_duplicate_filenames(self._db_conn, [f.name for f in src_files])
+            if duplicates:
+                src_files = _ask_about_duplicates(self, duplicates, src_files)
+                if src_files is None:
+                    return
+
         dest = self._catalog_root / "Import"
         dest.mkdir(parents=True, exist_ok=True)
-        for path in paths:
-            src = Path(path)
+        for src in src_files:
             dst = dest / src.name
             counter = 1
             while dst.exists():
                 dst = dest / f"{src.stem}_{counter}{src.suffix}"
                 counter += 1
             shutil.copy2(str(src), str(dst))
-        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć.")
+        self._status_label.setText(f"Zaimportowano {len(src_files)} zdjęć.")
         QMessageBox.information(
             self, "Import zakończony",
-            f"Skopiowano {len(paths)} zdjęć do folderu:\n{dest}"
+            f"Skopiowano {len(src_files)} zdjęć do folderu:\n{dest}"
         )
         self.import_completed.emit(str(dest))
 

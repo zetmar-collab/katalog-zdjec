@@ -32,9 +32,10 @@ def organize_photos(root, db_conn, mode='copy'):
             src = Path(photo['path'])
             if not src.exists():
                 continue
-            dst = _unique_dest(dest_dir / src.name)
-            if src == dst:
-                continue
+            intended = dest_dir / src.name
+            if src == intended:
+                continue  # już w docelowym miejscu — nic nie rób
+            dst = _unique_dest(intended)
             if mode == 'move':
                 shutil.move(str(src), str(dst))
             else:
