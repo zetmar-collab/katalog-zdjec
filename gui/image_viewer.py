@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QTreeWidget, QTreeWidgetItem, QScrollArea, QSizePolicy, QSplitter, QWidget,
@@ -13,6 +14,8 @@ from core.scanner import read_exif
 
 
 class ImageViewer(QDialog):
+    photo_deleted = pyqtSignal(str)   # emituje path usuniętego zdjęcia
+
     def __init__(self, photo, all_paths=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(photo.get('filename', 'Przeglądarka zdjęć'))
@@ -69,13 +72,17 @@ class ImageViewer(QDialog):
 
         layout.addWidget(splitter)
 
-        # Navigation
+        # Navigation + delete
         nav = QHBoxLayout()
         self._prev_btn = QPushButton("◀ Poprzednie")
         self._prev_btn.clicked.connect(self._go_prev)
         self._next_btn = QPushButton("Następne ▶")
         self._next_btn.clicked.connect(self._go_next)
+        self._delete_btn = QPushButton("🗑 Usuń zdjęcie…")
+        self._delete_btn.clicked.connect(self._delete_current)
         nav.addWidget(self._prev_btn)
+        nav.addStretch()
+        nav.addWidget(self._delete_btn)
         nav.addStretch()
         nav.addWidget(self._next_btn)
         layout.addLayout(nav)
@@ -158,6 +165,26 @@ class ImageViewer(QDialog):
         photo = {'path': path, 'filename': Path(path).name}
         self._load_photo(photo)
         self._update_nav_buttons()
+
+    def _delete_current(self):
+        path = self._all_paths[self._current_idx] if self._all_paths else self._current_path
+        fname = Path(path).name
+        reply = QMessageBox.question(
+            self, "Usuń zdjęcie",
+            f"Na pewno usunąć zdjęcie?\n\n{fname}\n\nPlik zostanie trwale usunięty z dysku.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self.photo_deleted.emit(path)
+        # Przejdź do następnego lub zamknij
+        self._all_paths.pop(self._current_idx)
+        if not self._all_paths:
+            self.accept()
+            return
+        if self._current_idx >= len(self._all_paths):
+            self._current_idx = len(self._all_paths) - 1
+        self._navigate_to(self._current_idx)
 
     def _update_nav_buttons(self):
         self._prev_btn.setEnabled(self._current_idx > 0)

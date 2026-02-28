@@ -112,6 +112,8 @@ class MainWindow(QMainWindow):
 
         self._folder_tree = FolderTree()
         self._folder_tree.week_selected.connect(self._on_week_selected)
+        self._folder_tree.week_delete_requested.connect(self._delete_week)
+        self._folder_tree.year_delete_requested.connect(self._delete_year)
         left_layout.addWidget(self._folder_tree)
 
         self._organize_btn = QPushButton("Porządkuj zdjęcia")
@@ -150,6 +152,7 @@ class MainWindow(QMainWindow):
 
         self._thumb_grid = ThumbnailGrid()
         self._thumb_grid.photo_selected.connect(self._open_viewer)
+        self._thumb_grid.photo_delete_requested.connect(self._delete_photo)
         right_layout.addWidget(self._thumb_grid)
 
         splitter.addWidget(right)
@@ -360,7 +363,102 @@ class MainWindow(QMainWindow):
             photo = {'path': path, 'filename': Path(path).name}
         all_paths = self._thumb_grid.get_all_paths()
         viewer = ImageViewer(photo, all_paths, self)
+        viewer.photo_deleted.connect(self._delete_photo)
         viewer.exec_()
+
+    def _delete_photo(self, path):
+        """Usuwa pojedyncze zdjęcie z dysku i z bazy danych."""
+        try:
+            Path(path).unlink(missing_ok=True)
+        except Exception as e:
+            QMessageBox.warning(self, "Błąd", f"Nie można usunąć pliku:\n{e}")
+            return
+        if self._db_conn:
+            from core.database import delete_photo as db_delete
+            db_delete(self._db_conn, path)
+        # Odśwież siatkę miniatur
+        current = self._thumb_grid.get_all_paths()
+        if path in current:
+            current.remove(path)
+            # Wczytaj zaktualizowaną listę z bazy dla bieżącego tygodnia
+            self._thumb_grid._photos = [
+                p for p in self._thumb_grid._photos if p.get('path') != path
+            ]
+            self._thumb_grid._apply_sort()
+        self._status_label.setText(f"Usunięto: {Path(path).name}")
+
+    def _delete_week(self, year, week):
+        """Usuwa wszystkie zdjęcia z danego tygodnia."""
+        from core.database import get_photos_by_week, delete_photos_by_week
+        photos = get_photos_by_week(self._db_conn, year, week)
+        reply = QMessageBox.question(
+            self, "Usuń tydzień",
+            f"Usunąć wszystkie zdjęcia z tygodnia {week:02d}/{year}?\n\n"
+            f"Liczba zdjęć: {len(photos)}\n\n"
+            "Pliki zostaną trwale usunięte z dysku.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        errors = []
+        for photo in photos:
+            try:
+                Path(photo['path']).unlink(missing_ok=True)
+            except Exception as e:
+                errors.append(str(e))
+        delete_photos_by_week(self._db_conn, year, week)
+        # Usuń pusty folder tygodnia
+        week_dir = self._catalog_root / str(year) / f"W{week:02d}"
+        try:
+            if week_dir.exists() and not any(week_dir.iterdir()):
+                week_dir.rmdir()
+                year_dir = week_dir.parent
+                if year_dir.exists() and not any(year_dir.iterdir()):
+                    year_dir.rmdir()
+        except Exception:
+            pass
+        self._thumb_grid.clear()
+        self._thumb_grid._photos = []
+        self._refresh_tree()
+        self._status_label.setText(f"Usunięto tydzień {week:02d}/{year} ({len(photos)} zdjęć).")
+        if errors:
+            QMessageBox.warning(self, "Ostrzeżenie", f"Niektórych plików nie można usunąć:\n" + "\n".join(errors[:5]))
+
+    def _delete_year(self, year):
+        """Usuwa wszystkie zdjęcia z danego roku."""
+        from core.database import get_photos_by_year, delete_photos_by_year
+        photos = get_photos_by_year(self._db_conn, year)
+        reply = QMessageBox.question(
+            self, "Usuń cały rok",
+            f"Usunąć WSZYSTKIE zdjęcia z roku {year}?\n\n"
+            f"Liczba zdjęć: {len(photos)}\n\n"
+            "Pliki zostaną trwale usunięte z dysku.\n"
+            "Tej operacji nie można cofnąć!",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        errors = []
+        for photo in photos:
+            try:
+                Path(photo['path']).unlink(missing_ok=True)
+            except Exception as e:
+                errors.append(str(e))
+        delete_photos_by_year(self._db_conn, year)
+        # Usuń pusty folder roku
+        year_dir = self._catalog_root / str(year)
+        try:
+            import shutil as _shutil
+            if year_dir.exists():
+                _shutil.rmtree(str(year_dir), ignore_errors=True)
+        except Exception:
+            pass
+        self._thumb_grid.clear()
+        self._thumb_grid._photos = []
+        self._refresh_tree()
+        self._status_label.setText(f"Usunięto rok {year} ({len(photos)} zdjęć).")
+        if errors:
+            QMessageBox.warning(self, "Ostrzeżenie", f"Niektórych plików nie można usunąć:\n" + "\n".join(errors[:5]))
 
     def _organize_photos(self):
         if not self._catalog_root or not self._db_conn:

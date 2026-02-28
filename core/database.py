@@ -65,6 +65,21 @@ def delete_photo(conn, path):
     conn.commit()
 
 
+def delete_photos_by_week(conn, year, week):
+    conn.execute("DELETE FROM photos WHERE year=? AND week=?", (year, week))
+    conn.commit()
+
+
+def delete_photos_by_year(conn, year):
+    conn.execute("DELETE FROM photos WHERE year=?", (year,))
+    conn.commit()
+
+
+def get_photos_by_year(conn, year):
+    cursor = conn.execute("SELECT * FROM photos WHERE year=? ORDER BY date_taken, filename", (year,))
+    return [dict(row) for row in cursor.fetchall()]
+
+
 def find_duplicate_filenames(conn, filenames):
     """Zwraca listę (filename, existing_path) dla plików już w katalogu."""
     duplicates = []

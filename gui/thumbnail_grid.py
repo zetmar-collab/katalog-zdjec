@@ -19,6 +19,7 @@ def _blob_to_pixmap(blob):
 
 class ThumbnailGrid(QListWidget):
     photo_selected = pyqtSignal(str)
+    photo_delete_requested = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -93,6 +94,11 @@ class ThumbnailGrid(QListWidget):
         exif_action = QAction("Pokaż EXIF", self)
         exif_action.triggered.connect(lambda: self.photo_selected.emit(photo['path']))
         menu.addAction(exif_action)
+
+        menu.addSeparator()
+        delete_action = QAction("Usuń zdjęcie…", self)
+        delete_action.triggered.connect(lambda: self.photo_delete_requested.emit(photo['path']))
+        menu.addAction(delete_action)
 
         menu.exec_(self.mapToGlobal(pos))
 
