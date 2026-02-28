@@ -128,7 +128,7 @@ class ImageViewer(QDialog):
             if val:
                 QTreeWidgetItem(self._exif_tree, [tag, val])
 
-        for tag, val in sorted(exif_data.get('exif', {}).items()):
+        for tag, val in sorted(exif_data.get('exif', {}).items(), key=lambda x: str(x[0])):
             display_val = str(val)
             if len(display_val) > 100:
                 display_val = display_val[:100] + '…'
