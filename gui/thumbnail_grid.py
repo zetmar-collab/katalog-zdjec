@@ -1,9 +1,8 @@
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtGui import QIcon, QPixmap, QImage
 from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QAbstractItemView, QMenu, QAction
 )
-from PyQt5.QtCore import QSize
 
 from core.gps import open_on_map
 
@@ -32,11 +31,26 @@ class ThumbnailGrid(QListWidget):
         self.customContextMenuRequested.connect(self._show_context_menu)
         self.itemDoubleClicked.connect(self._on_double_click)
         self._photos = []
+        self._sort_field = 'date_taken'   # 'date_taken' | 'filename'
+        self._sort_asc = True
 
     def load_week(self, photos):
+        self._photos = list(photos)
+        self._apply_sort()
+
+    def set_sort(self, field, ascending):
+        self._sort_field = field
+        self._sort_asc = ascending
+        self._apply_sort()
+
+    def _apply_sort(self):
+        def key(p):
+            val = p.get(self._sort_field) or ''
+            return val.lower() if isinstance(val, str) else val
+
+        self._photos.sort(key=key, reverse=not self._sort_asc)
         self.clear()
-        self._photos = photos
-        for photo in photos:
+        for photo in self._photos:
             item = QListWidgetItem(photo.get('filename', ''))
             pixmap = _blob_to_pixmap(photo.get('thumbnail_blob'))
             if pixmap:

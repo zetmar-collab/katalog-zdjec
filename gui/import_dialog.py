@@ -219,25 +219,26 @@ class ImportDialog(QDialog):
 
     def _import_single_file(self):
         ext_list = " ".join(f"*{e} *{e.upper()}" for e in sorted(SUPPORTED_EXTENSIONS))
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz zdjęcie do importu", str(Path.home()),
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Wybierz zdjęcia do importu", str(Path.home()),
             f"Zdjęcia ({ext_list})"
         )
-        if not path:
+        if not paths:
             return
-        src = Path(path)
         dest = self._catalog_root / "Import"
         dest.mkdir(parents=True, exist_ok=True)
-        dst = dest / src.name
-        counter = 1
-        while dst.exists():
-            dst = dest / f"{src.stem}_{counter}{src.suffix}"
-            counter += 1
-        shutil.copy2(str(src), str(dst))
-        self._status_label.setText(f"Zaimportowano: {src.name}")
+        for path in paths:
+            src = Path(path)
+            dst = dest / src.name
+            counter = 1
+            while dst.exists():
+                dst = dest / f"{src.stem}_{counter}{src.suffix}"
+                counter += 1
+            shutil.copy2(str(src), str(dst))
+        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć.")
         QMessageBox.information(
             self, "Import zakończony",
-            f"Skopiowano zdjęcie:\n{src.name}\n\ndo folderu:\n{dest}"
+            f"Skopiowano {len(paths)} zdjęć do folderu:\n{dest}"
         )
         self.import_completed.emit(str(dest))
 

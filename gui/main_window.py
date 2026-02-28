@@ -2,9 +2,9 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings
 from PyQt5.QtWidgets import (
-    QMainWindow, QSplitter, QWidget, QVBoxLayout, QPushButton,
+    QMainWindow, QSplitter, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QFileDialog, QStatusBar, QAction, QMessageBox,
-    QProgressBar, QLabel, QActionGroup
+    QProgressBar, QLabel, QActionGroup, QComboBox
 )
 
 from core.database import init_db, get_all_weeks, get_photos_by_week, upsert_photo, get_photo_by_path
@@ -88,10 +88,36 @@ class MainWindow(QMainWindow):
         left.setMaximumWidth(280)
         splitter.addWidget(left)
 
-        # Right panel
+        # Right panel: sort toolbar + thumbnail grid
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 2, 0, 0)
+        right_layout.setSpacing(2)
+
+        sort_bar = QHBoxLayout()
+        sort_bar.setContentsMargins(4, 0, 4, 0)
+        sort_bar.addWidget(QLabel("Sortuj:"))
+
+        self._sort_field_combo = QComboBox()
+        self._sort_field_combo.addItem("Po dacie", "date_taken")
+        self._sort_field_combo.addItem("Po nazwie", "filename")
+        self._sort_field_combo.currentIndexChanged.connect(self._on_sort_changed)
+        sort_bar.addWidget(self._sort_field_combo)
+
+        self._sort_order_combo = QComboBox()
+        self._sort_order_combo.addItem("Rosnąco ↑", True)
+        self._sort_order_combo.addItem("Malejąco ↓", False)
+        self._sort_order_combo.currentIndexChanged.connect(self._on_sort_changed)
+        sort_bar.addWidget(self._sort_order_combo)
+        sort_bar.addStretch()
+
+        right_layout.addLayout(sort_bar)
+
         self._thumb_grid = ThumbnailGrid()
         self._thumb_grid.photo_selected.connect(self._open_viewer)
-        splitter.addWidget(self._thumb_grid)
+        right_layout.addWidget(self._thumb_grid)
+
+        splitter.addWidget(right)
 
         splitter.setSizes([220, 880])
         root_layout.addWidget(splitter)
@@ -246,6 +272,11 @@ class MainWindow(QMainWindow):
             weeks = get_all_weeks(self._db_conn)
             self._folder_tree.populate(weeks)
 
+    def _on_sort_changed(self):
+        field = self._sort_field_combo.currentData()
+        ascending = self._sort_order_combo.currentData()
+        self._thumb_grid.set_sort(field, ascending)
+
     def _on_week_selected(self, year, week):
         if self._db_conn:
             photos = get_photos_by_week(self._db_conn, year, week)
@@ -304,22 +335,23 @@ class MainWindow(QMainWindow):
         import shutil
         from pathlib import Path as _Path
         ext_list = " ".join(f"*{e} *{e.upper()}" for e in sorted(SUPPORTED_EXTENSIONS))
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Wybierz zdjęcie do importu", str(Path.home()),
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Wybierz zdjęcia do importu", str(Path.home()),
             f"Zdjęcia ({ext_list})"
         )
-        if not path:
+        if not paths:
             return
-        src = _Path(path)
         dest = self._catalog_root / "Import"
         dest.mkdir(parents=True, exist_ok=True)
-        dst = dest / src.name
-        counter = 1
-        while dst.exists():
-            dst = dest / f"{src.stem}_{counter}{src.suffix}"
-            counter += 1
-        shutil.copy2(str(src), str(dst))
-        self._status_label.setText(f"Zaimportowano: {src.name}. Skanowanie…")
+        for path in paths:
+            src = _Path(path)
+            dst = dest / src.name
+            counter = 1
+            while dst.exists():
+                dst = dest / f"{src.stem}_{counter}{src.suffix}"
+                counter += 1
+            shutil.copy2(str(src), str(dst))
+        self._status_label.setText(f"Zaimportowano {len(paths)} zdjęć. Skanowanie…")
         self._start_scan()
 
     def _on_import_completed(self, dest_folder):
