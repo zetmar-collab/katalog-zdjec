@@ -15,10 +15,16 @@ def init_db(db_path):
             year INTEGER,
             lat REAL,
             lon REAL,
-            thumbnail_blob BLOB
+            thumbnail_blob BLOB,
+            rotation INTEGER DEFAULT 0
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_year_week ON photos(year, week)")
+    # Migration: add rotation column for existing databases
+    try:
+        conn.execute("ALTER TABLE photos ADD COLUMN rotation INTEGER DEFAULT 0")
+    except Exception:
+        pass  # column already exists
     conn.commit()
     return conn
 
@@ -78,6 +84,11 @@ def delete_photos_by_year(conn, year):
 def get_photos_by_year(conn, year):
     cursor = conn.execute("SELECT * FROM photos WHERE year=? ORDER BY date_taken, filename", (year,))
     return [dict(row) for row in cursor.fetchall()]
+
+
+def update_rotation(conn, path, rotation):
+    conn.execute("UPDATE photos SET rotation=? WHERE path=?", (int(rotation) % 360, str(path)))
+    conn.commit()
 
 
 def find_duplicate_filenames(conn, filenames):

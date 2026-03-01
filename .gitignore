@@ -4,7 +4,11 @@ __pycache__/
 .pytest_cache/
 .photo_catalog.db
 
-# Pliki budowania Windows
+# Artefakty budowania (trafią do GitHub Releases, nie do repo)
 *.exe
+*.AppImage
 dist/
+dist_linux/
 build/
+build_appimage/
+releases/

@@ -10,7 +10,9 @@ a = Analysis(
     ['main.py'],
     pathex=['.'],
     binaries=[],
-    datas=[],
+    datas=[
+        ('resources', 'resources'),
+    ],
     hiddenimports=[
         # PyQt5
         'PyQt5',
@@ -72,7 +74,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    # icon='assets/icon.ico',  # Odkomentuj i ustaw ścieżkę do ikony .ico
+    icon='resources/photo_catalog.ico',
 )
 
 coll = COLLECT(

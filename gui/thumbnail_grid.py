@@ -1,5 +1,5 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QIcon, QPixmap, QImage
+from PyQt5.QtGui import QIcon, QPixmap, QImage, QTransform
 from PyQt5.QtWidgets import (
     QListWidget, QListWidgetItem, QAbstractItemView, QMenu, QAction
 )
@@ -55,6 +55,10 @@ class ThumbnailGrid(QListWidget):
             item = QListWidgetItem(photo.get('filename', ''))
             pixmap = _blob_to_pixmap(photo.get('thumbnail_blob'))
             if pixmap:
+                rotation = int(photo.get('rotation') or 0)
+                if rotation:
+                    transform = QTransform().rotate(rotation)
+                    pixmap = pixmap.transformed(transform, Qt.SmoothTransformation)
                 item.setIcon(QIcon(pixmap))
             item.setData(Qt.UserRole, photo)
             item.setToolTip(photo.get('filename', ''))

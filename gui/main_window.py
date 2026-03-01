@@ -362,9 +362,18 @@ class MainWindow(QMainWindow):
         if not photo:
             photo = {'path': path, 'filename': Path(path).name}
         all_paths = self._thumb_grid.get_all_paths()
-        viewer = ImageViewer(photo, all_paths, self)
+        viewer = ImageViewer(photo, all_paths, db_conn=self._db_conn, parent=self)
         viewer.photo_deleted.connect(self._delete_photo)
+        viewer.rotation_changed.connect(self._on_rotation_changed)
         viewer.exec_()
+
+    def _on_rotation_changed(self, path, rotation):
+        """Update rotation in the thumbnail grid without reloading from DB."""
+        for photo in self._thumb_grid._photos:
+            if photo.get('path') == path:
+                photo['rotation'] = rotation
+                break
+        self._thumb_grid._apply_sort()
 
     def _delete_photo(self, path):
         """Usuwa pojedyncze zdjęcie z dysku i z bazy danych."""

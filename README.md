@@ -3,6 +3,14 @@
 Aplikacja do automatycznego porządkowania i przeglądania zdjęć.
 Sortuje fotografie do folderów **rok / tydzień** na podstawie danych EXIF,
 obsługuje import z aparatu, telefonu, USB i kart SD.
+Obsługuje formaty JPEG, PNG, TIFF oraz zdjęcia RAW (CR2, CR3, NEF, ARW, DNG i inne).
+
+## Pobierz
+
+| Platforma | Plik |
+|-----------|------|
+| 🪟 Windows 10/11 | [KatalogZdjec_Instalator_v1.0.exe](../../releases/latest) |
+| 🐧 Linux x86_64 | [KatalogZdjec-x86_64.AppImage](../../releases/latest) |
 
 ---
 
@@ -121,8 +129,10 @@ Uruchom plik instalatora i postępuj zgodnie z instrukcjami kreatora.
 
 - Strzałki `←` / `→` — poprzednie / następne zdjęcie.
 - Kółko myszy — powiększanie i pomniejszanie.
+- Przyciski **↺ Obróć lewo / ↻ Obróć prawo** — obrót zapamiętywany między sesjami.
 - Przycisk **GPS** — otwiera lokalizację zdjęcia w przeglądarce (OpenStreetMap).
 - Przycisk **Usuń** — trwale usuwa zdjęcie z dysku i bazy danych.
+- Obsługa RAW: CR2, CR3, NEF, ARW, DNG, ORF, RW2, RAF i inne.
 
 ### Import zdjęć
 

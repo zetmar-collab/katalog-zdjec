@@ -14,6 +14,9 @@ APP_DIR="$HOME/.local/share/$APP_ID"
 BIN_DIR="$HOME/.local/bin"
 LAUNCHER="$BIN_DIR/$APP_ID"
 DESKTOP_FILE="$HOME/.local/share/applications/$APP_ID.desktop"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+ICON_FILE="$ICON_DIR/$APP_ID.svg"
+CONFIG_FILE="$HOME/.config/PhotoCatalog/PhotoCatalog.conf"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --------------------------------------------------------------------------- #
@@ -38,10 +41,43 @@ uninstall() {
     echo -e "${BLUE}=== Odinstalowywanie aplikacji ${APP_NAME} ===${NC}"
     echo
 
+    # --- Pytanie o zdjęcia (PRZED usunięciem aplikacji) ---
+    CATALOG_ROOT=""
+    if [[ -f "$CONFIG_FILE" ]]; then
+        CATALOG_ROOT=$(grep -m1 "^catalog_root=" "$CONFIG_FILE" 2>/dev/null | sed 's/^catalog_root=//' | tr -d '\r\n')
+    fi
+
+    if [[ -n "$CATALOG_ROOT" && -d "$CATALOG_ROOT" ]]; then
+        echo -e "${YELLOW}Znaleziono katalog ze zdjęciami: $CATALOG_ROOT${NC}"
+        echo
+        echo -e "${RED}UWAGA: Ta operacja jest nieodwracalna!${NC}"
+        read -r -p "Czy usunąć WSZYSTKIE zdjęcia z katalogu? (t/N): " DEL_PHOTOS
+        if [[ "$DEL_PHOTOS" == "t" || "$DEL_PHOTOS" == "T" ]]; then
+            read -r -p "Jesteś pewien? Wpisz TAK aby potwierdzić: " CONFIRM
+            if [[ "$CONFIRM" == "TAK" ]]; then
+                warn "Usuwanie zdjęć z: $CATALOG_ROOT ..."
+                rm -rf "$CATALOG_ROOT"
+                success "Katalog ze zdjęciami usunięty."
+            else
+                info "Anulowano — zdjęcia pozostają nienaruszone."
+            fi
+        else
+            info "Zdjęcia pozostają nienaruszone w: $CATALOG_ROOT"
+        fi
+    else
+        info "Zdjęcia nie są zarządzane przez instalator — pozostają bez zmian."
+    fi
+
+    echo
+
+    # --- Usunięcie plików aplikacji ---
     rm -rf "$APP_DIR"           && info "Usunięto katalog aplikacji: $APP_DIR"
     rm -f  "$LAUNCHER"          && info "Usunięto skrypt uruchamiający: $LAUNCHER"
     rm -f  "$DESKTOP_FILE"      && info "Usunięto plik .desktop"
+    rm -f  "$ICON_FILE"         && info "Usunięto ikonę aplikacji"
+    rm -rf "$HOME/.config/PhotoCatalog" && info "Usunięto konfigurację aplikacji"
     update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
 
     echo
     success "Odinstalowanie zakończone."
@@ -163,7 +199,19 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     warn "  source $SHELL_RC"
 fi
 
-# --- 7. Tworzenie pliku .desktop -------------------------------------------
+# --- 7. Instalacja ikony aplikacji ------------------------------------------
+info "Instalowanie ikony aplikacji..."
+mkdir -p "$ICON_DIR"
+if [[ -f "$APP_DIR/resources/photo_catalog.svg" ]]; then
+    cp "$APP_DIR/resources/photo_catalog.svg" "$ICON_FILE"
+    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+    success "Ikona zainstalowana: $ICON_FILE"
+else
+    warn "Nie znaleziono pliku ikony — zostanie użyta ikona systemowa."
+    ICON_FILE="image-viewer"
+fi
+
+# --- 8. Tworzenie pliku .desktop -------------------------------------------
 info "Tworzenie wpisu w menu aplikacji..."
 mkdir -p "$HOME/.local/share/applications"
 
@@ -175,7 +223,7 @@ Name=Katalog Zdjęć
 GenericName=Przeglądarka zdjęć
 Comment=Automatycznie sortuje zdjęcia do folderów rok/tydzień na podstawie EXIF
 Exec=$LAUNCHER
-Icon=image-viewer
+Icon=$ICON_FILE
 Terminal=false
 StartupNotify=true
 Categories=Graphics;Photography;Viewer;

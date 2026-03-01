@@ -50,8 +50,9 @@ MinVersion=10.0
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
-; Ikona instalatora (opcjonalna)
-; SetupIconFile=assets\icon.ico
+; Ikona instalatora
+SetupIconFile=resources\photo_catalog.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 
 ; --------------------------------------------------------------------------- ;
 [Languages]
